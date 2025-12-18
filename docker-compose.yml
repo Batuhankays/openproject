@@ -2,6 +2,7 @@ networks:
   network:
   testing:
 
+
 volumes:
   downloads-test:
   pgdata:
@@ -13,6 +14,7 @@ volumes:
   tmp-test:
   fedata-test:
 
+
 x-op-restart-policy: &restart_policy
   restart: unless-stopped
 x-op-build: &build
@@ -22,8 +24,7 @@ x-op-build: &build
     DEV_UID: $DEV_UID
     DEV_GID: $DEV_GID
 x-op-image: &image
-  image:
-    openproject/dev:latest
+  image: openproject/dev:latest
 x-op-frontend-build: &frontend-build
   context: .
   dockerfile: ./docker/dev/frontend/Dockerfile
@@ -34,7 +35,7 @@ x-op-backend: &backend
   build:
     <<: *build
     target: develop
-  <<: [*image, *restart_policy]
+  <<: [ *image, *restart_policy ]
   environment:
     LOCAL_DEV_CHECK: "${LOCAL_DEV_CHECK:?The docker-compose file for OpenProject has moved to https://github.com/opf/openproject-docker-compose}"
     RAILS_ENV: development
@@ -62,13 +63,13 @@ services:
     <<: *backend
     tty: true
     stdin_open: true
-    command: run-app
+    command: sh -c "bundle install && bundle exec rails db:create db:migrate db:seed && bundle exec rails server -u puma -b 0.0.0.0"
     depends_on:
       - db
       - cache
       - frontend
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-8001}:3000"
 
   worker:
     <<: *backend
@@ -80,7 +81,7 @@ services:
   frontend:
     build:
       <<: *frontend-build
-    command: "node --max_old_space_size=8096 ./node_modules/@angular/cli/bin/ng serve --host 0.0.0.0"
+    command: "sh -c 'cd /home/dev/openproject && npm install && npm run serve'"
     volumes:
       - ".:/home/dev/openproject"
       - "${CKEDITOR_BUILD_DIR:-./frontend/src/vendor/ckeditor/}:/home/dev/openproject/frontend/src/vendor/ckeditor/"
@@ -89,7 +90,7 @@ services:
     environment:
       __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: "openproject-assets.local"
     ports:
-      - "${FE_PORT:-4200}:4200"
+      - "${FE_PORT:-8200}:4200"
 
   db:
     image: postgres:17
@@ -101,6 +102,8 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_DATABASE:-openproject}
+    ports:
+      - "5434:5432"
     networks:
       - network
 
@@ -110,7 +113,7 @@ services:
     networks:
       - network
 
-######### Testing stuff below ############
+  ######### Testing stuff below ############
 
   db-test:
     image: postgres:17
@@ -139,7 +142,7 @@ services:
     networks:
       - testing
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://frontend-test:4200/"]
+      test: [ "CMD", "curl", "-f", "http://frontend-test:4200/" ]
 
   backend-test:
     build:
